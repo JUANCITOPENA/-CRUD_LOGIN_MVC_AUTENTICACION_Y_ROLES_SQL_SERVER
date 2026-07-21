@@ -1,4 +1,4 @@
-# 🔐 CRUD_LOGIN_MAUI — Sistema de Autenticación y Roles con .NET MAUI + SQL Server (Versión MVC)
+﻿# 🔐 CRUD_LOGIN_MAUI — Sistema de Autenticación y Roles con .NET MAUI + SQL Server (Versión MVC)
 
 > 📘 **Manual paso a paso, completo y documentado**
 > Guía exhaustiva para construir (o entender) un sistema de **login con roles** desarrollado en **.NET MAUI**, con conexión directa a **SQL Server** y contraseñas protegidas mediante **hashing SHA2_256**.
@@ -457,17 +457,17 @@ Abre `MainPage.xaml` y diseña la interfaz gráfica con campos para Usuario y Co
                FontSize="25"
                Margin="10"/>
 
-        <!-- Grid para Contrase�a + Bot�n Ojito -->
+        <!-- Grid para Contrase a + Bot n Ojito -->
         <Grid Margin="10">
             <Entry x:Name="txtPassword"
-                   Placeholder="Contrase�a"
+                   Placeholder="Contrase a"
                    IsPassword="True"
                    HorizontalTextAlignment="Center"
                    TextColor="Black"
                    FontSize="25"/>
 
             <Button x:Name="btnTogglePassword"
-                    Text="???"
+                    Text="👁️"
                     Clicked="OnTogglePasswordClicked"
                     BackgroundColor="Transparent"
                     HorizontalOptions="End"
@@ -534,6 +534,10 @@ public partial class MainPage : ContentPage
         txtUsuario.Text = string.Empty;
         txtPassword.Text = string.Empty;
         lblMensaje.Text = string.Empty;
+        
+        // Restaurar funcionalidad del ojito al estado original por seguridad
+        txtPassword.IsPassword = true;
+        btnTogglePassword.Text = "👁️";
     }
 
     private void OnTogglePasswordClicked(object sender, EventArgs e)
@@ -707,95 +711,51 @@ Se usa para la gestión completa (CRUD) de los usuarios, e incluye un buscador e
 
 Aquí usamos un método mágico ✨ central `EjecutarAccion` que nos ahorra repetir código: recibe la consulta SQL y el nombre de la acción (para el mensaje de confirmación), y encapsula la apertura de conexión, ejecución y recarga de la lista.
 ```csharp
-namespace CRUD_LOGIN_MAUI.Models;
-
-public class UsuarioItem
-{
-    public int Id { get; set; }
-    public string Usuario { get; set; }
-    public string Rol { get; set; }
-}
 
 using Microsoft.Data.SqlClient;
 using System.Data;
 
-using CRUD_LOGIN_MAUI.Models;
 using CRUD_LOGIN_MAUI.Controllers;
+using CRUD_LOGIN_MAUI.Models;
 
 namespace CRUD_LOGIN_MAUI.Views;
 
-
-
-public partial class AdminPage : ContentPage
+public partial class RolesPage : ContentPage
 {
     private string connectionString = Config.ConnectionString;
     private bool isProcessing = false;
     private int idSeleccionado = 0;
-    private List<int> _rolesIds = new List<int>();
 
-    public AdminPage()
-    {
-        InitializeComponent();
-    }
-
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-        await CargarRoles();
-    }
-
-    private async Task CargarRoles()
-    {
-        try
-        {
-            using var conn = new SqlConnection(connectionString);
-            await conn.OpenAsync();
-
-            string query = "SELECT Id, NombreRol FROM Roles";
-            using var cmd = new SqlCommand(query, conn);
-            using var reader = await cmd.ExecuteReaderAsync();
-
-            _rolesIds.Clear();
-            var roles = new List<string>();
-            while (await reader.ReadAsync())
-            {
-                _rolesIds.Add((int)reader["Id"]);
-                roles.Add(reader["NombreRol"].ToString());
-            }
-
-            pickerRol.ItemsSource = roles;
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlert("Error", $"No se pudieron cargar los roles: {ex.Message}", "OK");
-        }
-    }
+    public RolesPage() => InitializeComponent();
 
     private async void OnLogoutClicked(object sender, EventArgs e) =>
         await Shell.Current.GoToAsync("//MainPage");
 
     private async void OnInsertClicked(object sender, EventArgs e) =>
-        await EjecutarAccion(@"INSERT INTO Usuarios (Usuario, Password, IdRol) 
-                               VALUES (@Usuario, CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', @Password), 2), @IdRol)", "insertar");
+        await EjecutarAccion("INSERT INTO Roles (NombreRol) VALUES (@NombreRol)", "insertar");
 
     private async void OnUpdateClicked(object sender, EventArgs e) =>
-        await EjecutarAccion(@"UPDATE Usuarios 
-                               SET Usuario=@Usuario, Password=CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', @Password), 2), IdRol=@IdRol 
-                               WHERE Id=@Id", "actualizar");
+        await EjecutarAccion("UPDATE Roles SET NombreRol=@NombreRol WHERE Id=@Id", "actualizar");
 
     private async void OnDeleteClicked(object sender, EventArgs e) =>
-        await EjecutarAccion("DELETE FROM Usuarios WHERE Id=@Id", "eliminar");
+        await EjecutarAccion("DELETE FROM Roles WHERE Id=@Id", "eliminar");
 
     private async Task EjecutarAccion(string query, string accion)
     {
         if (isProcessing) return;
 
-        bool confirmar = await DisplayAlert("Confirmación", $"¿Seguro que desea {accion} este usuario?", "Sí", "No");
+        bool confirmar = await DisplayAlert("Confirmacion", $"Seguro que desea {accion} este rol?", "Si", "No");
         if (!confirmar) return;
 
-        if (pickerRol.SelectedIndex < 0)
+        if (accion != "insertar" && idSeleccionado == 0)
         {
-            await DisplayAlert("Error", "Debe seleccionar un rol.", "OK");
+            await DisplayAlert("Error", "Debe seleccionar un rol de la lista primero.", "OK");
+            return;
+        }
+
+        if (accion != "eliminar" && string.IsNullOrWhiteSpace(txtRol.Text))
+        {
+            await DisplayAlert("Error", "Debe escribir el nombre del rol.", "OK");
             return;
         }
 
@@ -806,32 +766,33 @@ public partial class AdminPage : ContentPage
             await conn.OpenAsync();
 
             using var cmd = new SqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@Usuario", txtUsuario.Text ?? "");
-            cmd.Parameters.AddWithValue("@Password", txtPassword.Text ?? "");
-
-            cmd.Parameters.AddWithValue("@IdRol", _rolesIds[pickerRol.SelectedIndex]);
+            cmd.Parameters.AddWithValue("@NombreRol", txtRol.Text ?? "");
             cmd.Parameters.AddWithValue("@Id", idSeleccionado);
 
             await cmd.ExecuteNonQueryAsync();
-            await DisplayAlert("Éxito", $"Usuario {accion}do correctamente.", "OK");
+            await DisplayAlert(" xito", $"Rol {accion}do correctamente.", "OK");
 
             LimpiarCampos();
-            await CargarLista("SELECT U.Id, U.Usuario, R.NombreRol FROM Usuarios U INNER JOIN Roles R ON U.IdRol = R.Id", "");
+            await CargarLista("SELECT Id, NombreRol FROM Roles", "");
         }
-        catch (Exception ex) { await DisplayAlert("Error", ex.Message, "OK"); }
+        catch (SqlException sqlEx) when (sqlEx.Number == 547)
+        {
+            await DisplayAlert("Error de Integridad", "No se puede eliminar este rol porque actualmente hay usuarios asignados a él.", "OK");
+        }
+        catch (Exception ex) 
+        { 
+            await DisplayAlert("Error", ex.Message, "OK"); 
+        }
         finally { isProcessing = false; }
     }
 
     private async void OnConsultClicked(object sender, EventArgs e) =>
-        await CargarLista(@"SELECT U.Id, U.Usuario, R.NombreRol 
-                            FROM Usuarios U INNER JOIN Roles R ON U.IdRol = R.Id", "");
+        await CargarLista("SELECT Id, NombreRol FROM Roles", "");
 
     private async void OnSearchChanged(object sender, TextChangedEventArgs e)
     {
         string filtro = "%" + e.NewTextValue + "%";
-        string query = @"SELECT U.Id, U.Usuario, R.NombreRol 
-                         FROM Usuarios U INNER JOIN Roles R ON U.IdRol = R.Id 
-                         WHERE U.Usuario LIKE @Filtro OR CAST(U.Id AS VARCHAR) LIKE @Filtro";
+        string query = "SELECT Id, NombreRol FROM Roles WHERE NombreRol LIKE @Filtro OR CAST(Id AS VARCHAR) LIKE @Filtro";
         await CargarLista(query, filtro);
     }
 
@@ -846,69 +807,42 @@ public partial class AdminPage : ContentPage
             if (!string.IsNullOrEmpty(parametro)) cmd.Parameters.AddWithValue("@Filtro", parametro);
 
             using var reader = await cmd.ExecuteReaderAsync();
-            var lista = new List<UsuarioItem>();
+            var lista = new List<RolItem>();
 
             while (await reader.ReadAsync())
-                lista.Add(new UsuarioItem
+                lista.Add(new RolItem
                 {
                     Id = (int)reader["Id"],
-                    Usuario = reader["Usuario"].ToString(),
-                    Rol = reader["NombreRol"].ToString()
+                    NombreRol = reader["NombreRol"].ToString()
                 });
 
-            listaUsuarios.ItemsSource = lista;
+            listaRoles.ItemsSource = lista;
         }
         catch (Exception ex) { await DisplayAlert("Error", ex.Message, "OK"); }
     }
 
-    private void OnUsuarioSelected(object sender, SelectionChangedEventArgs e)
+    private void OnRolSelected(object sender, SelectionChangedEventArgs e)
     {
-        var item = e.CurrentSelection.FirstOrDefault() as UsuarioItem;
+        var item = e.CurrentSelection.FirstOrDefault() as RolItem;
         if (item != null)
         {
             idSeleccionado = item.Id;
-            txtUsuario.Text = item.Usuario;
-            txtPassword.Text = "";
-
-            if (pickerRol.ItemsSource is List<string> roles)
-            {
-                pickerRol.SelectedIndex = roles.IndexOf(item.Rol);
-            }
+            txtRol.Text = item.NombreRol;
         }
-    }
-
-    private async void OnValidateClicked(object sender, EventArgs e)
-    {
-        using var conn = new SqlConnection(connectionString);
-        await conn.OpenAsync();
-
-        string query = @"SELECT U.Usuario 
-                         FROM Usuarios U 
-                         WHERE U.Usuario=@U AND U.Password=CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', @P), 2)";
-
-        using var cmd = new SqlCommand(query, conn);
-        cmd.Parameters.AddWithValue("@U", txtUsuario.Text);
-        cmd.Parameters.AddWithValue("@P", txtPassword.Text);
-
-        lblMensaje.Text = (await cmd.ExecuteScalarAsync() != null) ? "✅ Credenciales correctas" : "❌ Incorrecto";
     }
 
     private void OnClearClicked(object sender, EventArgs e) => LimpiarCampos();
 
-    private async void OnRolesClicked(object sender, EventArgs e)
-    {
-        await Navigation.PushAsync(new RolesPage());
-    }
-
     private void LimpiarCampos()
     {
         idSeleccionado = 0;
-        txtUsuario.Text = txtPassword.Text = txtBuscar.Text = "";
-        pickerRol.SelectedIndex = -1;
-        lblMensaje.Text = "";
-        listaUsuarios.ItemsSource = null;
+        txtRol.Text = txtBuscar.Text = "";
+        listaRoles.ItemsSource = null;
     }
 }
+
+
+
 ```
 
 > 📝 **Detalle importante:** al actualizar un usuario, el campo de contraseña **siempre** se vuelve a encriptar con `HASHBYTES`, incluso si el usuario deja el campo vacío en pantalla — por eso, en un escenario real, conviene validar que `txtPassword` no esté vacío antes de sobrescribir el hash existente, o el usuario perdería su contraseña anterior.
@@ -974,7 +908,7 @@ A diferencia del Administrador, estas vistas carecen de botones para modificar l
                             SelectionChanged="OnRolSelected"
                             HeightRequest="250">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="local:RolItem">
+                    <DataTemplate x:DataType="models:RolItem">
                         <Grid Padding="10" ColumnDefinitions="40, *">
                             <Label Grid.Column="0" Text="{Binding Id}" FontAttributes="Bold" TextColor="Blue"/>
                             <Label Grid.Column="1" Text="{Binding NombreRol}" FontAttributes="Bold"/>
@@ -1037,24 +971,13 @@ public partial class RolesPage : ContentPage
     {
         if (isProcessing) return;
 
-        bool confirmar = await DisplayAlert("Confirmaci�n", $"�Seguro que desea {accion} este rol?", "S�", "No");
+        bool confirmar = await DisplayAlert("Confirmacion", $"Seguro que desea {accion} este rol?", "Si", "No");
         if (!confirmar) return;
 
-        isProcessing = true;
-        try
+        if (accion != "insertar" && idSeleccionado == 0)
         {
-            using var conn = new SqlConnection(connectionString);
-            await conn.OpenAsync();
-
-            using var cmd = new SqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@NombreRol", txtRol.Text ?? "");
-            cmd.Parameters.AddWithValue("@Id", idSeleccionado);
-
-            await cmd.ExecuteNonQueryAsync();
-            await DisplayAlert("�xito", $"Rol {accion}do correctamente.", "OK");
-
-            LimpiarCampos();
-            await CargarLista("SELECT Id, NombreRol FROM Roles", "");
+            await DisplayAlert("Error", "Debe seleccionar un rol de la lista primero.", "OK");
+            return;
         }
         catch (Exception ex) { await DisplayAlert("Error", ex.Message, "OK"); }
         finally { isProcessing = false; }
