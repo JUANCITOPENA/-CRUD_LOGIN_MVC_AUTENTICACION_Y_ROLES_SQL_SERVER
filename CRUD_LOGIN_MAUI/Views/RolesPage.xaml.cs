@@ -5,11 +5,7 @@ using CRUD_LOGIN_MAUI.Controllers;
 
 namespace CRUD_LOGIN_MAUI.Views;
 
-public class RolItem
-{
-    public int Id { get; set; }
-    public string NombreRol { get; set; }
-}
+
 
 public partial class RolesPage : ContentPage
 {
@@ -112,4 +108,5 @@ public partial class RolesPage : ContentPage
         listaRoles.ItemsSource = null;
     }
 }
+
 
