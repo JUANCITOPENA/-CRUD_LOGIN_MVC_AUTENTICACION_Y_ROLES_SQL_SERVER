@@ -1,4 +1,4 @@
-﻿# 🔐 CRUD_LOGIN_MAUI — Sistema de Autenticación y Roles con .NET MAUI + SQL Server (Versión MVC)
+# 🔐 CRUD_LOGIN_MAUI — Sistema de Autenticación y Roles con .NET MAUI + SQL Server (Versión MVC)
 
 > 📘 **Manual paso a paso, completo y documentado**
 > Guía exhaustiva para construir (o entender) un sistema de **login con roles** desarrollado en **.NET MAUI**, con conexión directa a **SQL Server** y contraseñas protegidas mediante **hashing SHA2_256**.
@@ -930,22 +930,13 @@ A diferencia del Administrador, estas vistas carecen de botones para modificar l
 
 ### ⚙️ `RolesPage.xaml.cs` (Lógica del Catálogo de Roles)
 ```csharp
-namespace CRUD_LOGIN_MAUI.Models;
-
-public class RolItem
-{
-    public int Id { get; set; }
-    public string NombreRol { get; set; }
-}
-
 using Microsoft.Data.SqlClient;
 using System.Data;
 
 using CRUD_LOGIN_MAUI.Controllers;
+using CRUD_LOGIN_MAUI.Models;
 
 namespace CRUD_LOGIN_MAUI.Views;
-
-
 
 public partial class RolesPage : ContentPage
 {
@@ -979,7 +970,37 @@ public partial class RolesPage : ContentPage
             await DisplayAlert("Error", "Debe seleccionar un rol de la lista primero.", "OK");
             return;
         }
-        catch (Exception ex) { await DisplayAlert("Error", ex.Message, "OK"); }
+
+        if (accion != "eliminar" && string.IsNullOrWhiteSpace(txtRol.Text))
+        {
+            await DisplayAlert("Error", "Debe escribir el nombre del rol.", "OK");
+            return;
+        }
+
+        isProcessing = true;
+        try
+        {
+            using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            using var cmd = new SqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@NombreRol", txtRol.Text ?? "");
+            cmd.Parameters.AddWithValue("@Id", idSeleccionado);
+
+            await cmd.ExecuteNonQueryAsync();
+            await DisplayAlert(" xito", $"Rol {accion}do correctamente.", "OK");
+
+            LimpiarCampos();
+            await CargarLista("SELECT Id, NombreRol FROM Roles", "");
+        }
+        catch (SqlException sqlEx) when (sqlEx.Number == 547)
+        {
+            await DisplayAlert("Error de Integridad", "No se puede eliminar este rol porque actualmente hay usuarios asignados a él.", "OK");
+        }
+        catch (Exception ex) 
+        { 
+            await DisplayAlert("Error", ex.Message, "OK"); 
+        }
         finally { isProcessing = false; }
     }
 
@@ -1037,6 +1058,8 @@ public partial class RolesPage : ContentPage
         listaRoles.ItemsSource = null;
     }
 }
+
+
 ```
 
 > ⚠️ **Cuidado con la integridad referencial:** al eliminar un rol que todavía tiene usuarios asociados (`Usuarios.IdRol`), SQL Server rechazará la operación por la restricción `FOREIGN KEY`. Esto es intencional: protege la base de datos de quedar con usuarios "huérfanos" sin rol válido.
