@@ -2,10 +2,9 @@ using Microsoft.Data.SqlClient;
 using System.Data;
 
 using CRUD_LOGIN_MAUI.Controllers;
+using CRUD_LOGIN_MAUI.Models;
 
 namespace CRUD_LOGIN_MAUI.Views;
-
-
 
 public partial class RolesPage : ContentPage
 {

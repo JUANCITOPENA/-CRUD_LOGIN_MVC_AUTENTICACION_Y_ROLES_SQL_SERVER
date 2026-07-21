@@ -43,6 +43,9 @@ Este proyecto es un **sistema educativo de autenticación con roles** (Admin, Su
 - 🗂️ **CRUD completo** de usuarios y roles desde la app (Insertar, Actualizar, Eliminar, Consultar, Validar).
 - 🎨 **Vistas diferenciadas por rol**, donde solo el Administrador tiene permisos de escritura sobre la base de datos.
 
+### 🐛 Actualizaciones Recientes (Fixes)
+- **Corrección de compilación en `RolesPage`**: Se solucionó el error `CS0246` agregando la referencia de namespace `using CRUD_LOGIN_MAUI.Models;` en el Code-Behind y ajustando el enlace de datos en XAML de `local:RolItem` a `models:RolItem`. El proyecto vuelve a compilar y ejecutar perfectamente para todas las plataformas sin dependencias rotas.
+
 ```
 ┌─────────────┐      valida credenciales       ┌───────────────────┐
 │  MainPage   │ ─────────────────────────────► │   SQL Server DB    │
